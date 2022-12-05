@@ -1,6 +1,6 @@
 from nonebot.plugin.on import on_message, on_command
 from nonebot.matcher import Matcher
-from nonebot.adapters.onebot.v11 import GroupMessageEvent, MessageSegment, Message
+from nonebot.adapters.onebot.v11 import GroupMessageEvent, MessageSegment, Message, GROUP_ADMIN, GROUP_OWNER
 from nonebot.params import CommandArg
 from nonebot.rule import to_me
 from nonebot.permission import SUPERUSER
@@ -71,13 +71,15 @@ async def _(matcher: Matcher, event:GroupMessageEvent):
                 return
 
 
-add_block = on_command("添加阻断", priority = 1, block = True)
+add_block = on_command("添加阻断", permission = SUPERUSER | GROUP_ADMIN | GROUP_OWNER, priority = 5, block = True)
 
 @add_block.handle()
 async def _(matcher: Matcher, event:GroupMessageEvent, arg: Message = CommandArg()):
     msg = arg.extract_plain_text().strip().split()
     if msg and len(msg) >= 2:
         command = msg[0]
+        if command in ["添加阻断","解除阻断"]:
+            await add_block.finish("不可以这么做")
         block_type = msg[1]
         if (block_type == "时间" or block_type == "冷却") and len(msg) == 3:
             try:
@@ -99,7 +101,7 @@ async def _(matcher: Matcher, event:GroupMessageEvent, arg: Message = CommandArg
     await add_block.finish("添加阻断指令格式错误。")
 
 
-del_block = on_command("解除阻断", priority = 1, block = True)
+del_block = on_command("解除阻断", permission = SUPERUSER | GROUP_ADMIN | GROUP_OWNER, priority = 5, block = True)
 
 @del_block.handle()
 async def _(matcher: Matcher, event:GroupMessageEvent, arg: Message = CommandArg()):
