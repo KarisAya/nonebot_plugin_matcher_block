@@ -1,14 +1,20 @@
 from nonebot.plugin.on import on_message, on_command
 from nonebot.matcher import Matcher
-from nonebot.adapters.onebot.v11 import GroupMessageEvent, MessageSegment, Message, GROUP_ADMIN, GROUP_OWNER
+from nonebot.adapters.onebot.v11 import (
+    GROUP_ADMIN,
+    GROUP_OWNER,
+    GroupMessageEvent,
+    Message,
+    MessageSegment
+    )
 from nonebot.params import CommandArg
-from nonebot.rule import to_me
 from nonebot.permission import SUPERUSER
 
 from pathlib import Path
 
 import time
 import os
+import re
 
 try:
     import ujson as json
@@ -43,32 +49,68 @@ else:
 
 cache = {}
 
-block = on_message(priority = 1, block = False)
+def is_block_group(event: GroupMessageEvent) -> bool:
+    msg = str(event.message)
+    for command in set(group_config.keys()):
+        if command.startswith("^") and command.endswith("$"):
+            if re.match(re.compile(command),msg):
+                break
+            else:
+                continue
+        else:
+            if msg.startswith(command):
+                break
+            else:
+                continue
+    else:
+        return False
+    group_id = event.group_id
+    if group_id in group_config[command]:
+        event.raw_message = ""
+        return True
+    else:
+        return False
+
+def is_block_time(event: GroupMessageEvent) -> bool:
+    msg = str(event.message)
+    for command in set(time_config.keys()):
+        if command.startswith("^") and command.endswith("$"):
+            if re.match(re.compile(command),msg):
+                break
+            else:
+                continue
+        else:
+            if msg.startswith(command):
+                break
+            else:
+                continue
+    else:
+        return False
+
+    group_id = event.group_id
+    user_id = event.user_id
+    cache.setdefault(group_id,{})
+    cd = time.time() - cache[group_id].get(user_id,0)
+    if cd > time_config[command]:
+        cache[group_id][user_id] = time.time()
+        return False
+    else:
+        event.raw_message = f"你的【{command}】冷却还有{int(time_config[command] - cd) + 1}秒"
+        return True
+
+async def is_block(event: GroupMessageEvent) -> bool:
+    return is_block_group(event) or is_block_time(event)
+
+block = on_message(rule = is_block, priority = 0, block = False)
 
 @block.handle()
-async def _(matcher: Matcher, event:GroupMessageEvent):
-    arg = str(event.message)
-    for command in set(group_config.keys()):
-        if arg.startswith(command):
-            group_id = event.group_id
-            if group_id in group_config[command]:
-                matcher.stop_propagation()
-                return
-            break
-
-    for command in set(time_config.keys()):
-        if arg.startswith(command):
-            group_id = event.group_id
-            user_id = event.user_id
-            cache.setdefault(group_id,{})
-            cd = time.time() - cache[group_id].get(user_id,0)
-            if cd > time_config[command]:
-                cache[group_id][user_id] = time.time()
-                return
-            else:
-                matcher.stop_propagation()
-                await block.send(f"你的【{command}】冷却还有{int(time_config[command] - cd) + 1}秒",at_sender = True)
-                return
+async def _(matcher: Matcher,event:GroupMessageEvent):
+    matcher.stop_propagation()
+    msg = event.raw_message
+    if msg:
+        await block.finish(msg,at_sender = True)
+    else:
+        await block.finish()
 
 
 add_block = on_command("添加阻断", permission = SUPERUSER | GROUP_ADMIN | GROUP_OWNER, priority = 5, block = True)
@@ -78,7 +120,7 @@ async def _(matcher: Matcher, event:GroupMessageEvent, arg: Message = CommandArg
     msg = arg.extract_plain_text().strip().split()
     if msg and len(msg) >= 2:
         command = msg[0]
-        if command in ["添加阻断","解除阻断"]:
+        if command in ["添加阻断","解除阻断","删除阻断"]:
             await add_block.finish("不可以这么做")
         block_type = msg[1]
         if (block_type == "时间" or block_type == "冷却") and len(msg) == 3:
@@ -101,7 +143,7 @@ async def _(matcher: Matcher, event:GroupMessageEvent, arg: Message = CommandArg
     await add_block.finish("添加阻断指令格式错误。")
 
 
-del_block = on_command("解除阻断", permission = SUPERUSER | GROUP_ADMIN | GROUP_OWNER, priority = 5, block = True)
+del_block = on_command("解除阻断",aliases={"删除阻断"}, permission = SUPERUSER | GROUP_ADMIN | GROUP_OWNER, priority = 5, block = True)
 
 @del_block.handle()
 async def _(matcher: Matcher, event:GroupMessageEvent, arg: Message = CommandArg()):
@@ -129,3 +171,17 @@ async def _(matcher: Matcher, event:GroupMessageEvent, arg: Message = CommandArg
             await del_block.finish(f"指令【{command}】未屏蔽。")
 
     await del_block.finish("解除阻断指令格式错误。")
+
+show_block = on_command("查看阻断", permission = SUPERUSER | GROUP_ADMIN | GROUP_OWNER, priority = 5, block = True)
+
+@show_block.handle()
+async def _(matcher: Matcher, event:GroupMessageEvent):
+    group_id = event.group_id
+    msg = ""
+    for command in set(group_config.keys()):
+        if group_id in group_config[command]:
+            msg += f"【{command}】：屏蔽\n"
+    for command in set(time_config.keys()):
+        msg += f"【{command}】：{time_config[command]}s\n"
+
+    await show_block.finish(msg[:-1])
