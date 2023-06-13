@@ -1,11 +1,11 @@
-from nonebot.plugin.on import on_message, on_command
+from nonebot.plugin.on import on_command
 from nonebot.matcher import Matcher
 from nonebot.adapters.onebot.v11 import (
     GROUP_ADMIN,
     GROUP_OWNER,
+    Bot,
     GroupMessageEvent,
     Message,
-    MessageSegment
     )
 from nonebot.params import CommandArg
 from nonebot.permission import SUPERUSER
@@ -33,9 +33,6 @@ if time_config_file.exists():
         time_config = json.load(f)
 else:
     time_config = {}
-    with open(time_config_file, "w", encoding="utf8") as f:
-        json.dump({}, f, ensure_ascii=False, indent=4)
-
 
 group_config_file = path / "group_config.json"
 
@@ -44,15 +41,11 @@ if group_config_file.exists():
         group_config = json.load(f)
 else:
     group_config = {}
-    with open(group_config_file, "w", encoding="utf8") as f:
-        json.dump({}, f, ensure_ascii=False, indent=4)
 
-cache = {}
-
-def is_block_group(event: GroupMessageEvent) -> bool:
+def is_block_group(event:GroupMessageEvent) -> bool:
     msg = str(event.message)
     for command in set(group_config.keys()):
-        if command.startswith("^") and command.endswith("$"):
+        if command.startswith("^"):
             if re.match(re.compile(command),msg):
                 break
             else:
@@ -66,15 +59,16 @@ def is_block_group(event: GroupMessageEvent) -> bool:
         return False
     group_id = event.group_id
     if group_id in group_config[command]:
-        event.raw_message = ""
         return True
     else:
         return False
 
-def is_block_time(event: GroupMessageEvent) -> bool:
+cache = {}
+
+def is_block_time(event:GroupMessageEvent) -> bool:
     msg = str(event.message)
     for command in set(time_config.keys()):
-        if command.startswith("^") and command.endswith("$"):
+        if command.startswith("^"):
             if re.match(re.compile(command),msg):
                 break
             else:
@@ -95,23 +89,19 @@ def is_block_time(event: GroupMessageEvent) -> bool:
         cache[group_id][user_id] = time.time()
         return False
     else:
-        event.raw_message = f"你的【{command}】冷却还有{int(time_config[command] - cd) + 1}秒"
-        return True
+        return f"你的【{command}】冷却还有{int(time_config[command] - cd) + 1}秒"
 
-async def is_block(event: GroupMessageEvent) -> bool:
-    return is_block_group(event) or is_block_time(event)
+from nonebot.message import event_preprocessor
+from nonebot.exception import IgnoredException
 
-block = on_message(rule = is_block, priority = 0, block = False)
-
-@block.handle()
-async def _(matcher: Matcher,event:GroupMessageEvent):
-    matcher.stop_propagation()
-    msg = event.raw_message
-    if msg:
-        await block.finish(msg,at_sender = True)
-    else:
-        await block.finish()
-
+@event_preprocessor
+async def do_something(bot:Bot, event:GroupMessageEvent , permission = SUPERUSER | GROUP_ADMIN | GROUP_OWNER):
+    if not await permission(bot,event):
+        if is_block_group(event):
+            raise IgnoredException("本群已屏蔽此指令")
+        if echo := is_block_time(event):
+            await bot.send(event = event, message = echo)
+            raise IgnoredException("用户指令正在冷却")
 
 add_block = on_command("添加阻断", permission = SUPERUSER | GROUP_ADMIN | GROUP_OWNER, priority = 5, block = True)
 
@@ -185,3 +175,25 @@ async def _(matcher: Matcher, event:GroupMessageEvent):
         msg += f"【{command}】：{time_config[command]}s\n"
 
     await show_block.finish(msg[:-1])
+
+from nonebot import get_driver
+
+driver = get_driver()
+bot_list = set()
+driver.on_bot_connect(lambda bot:bot_list.add(int(bot.self_id)))
+driver.on_bot_disconnect(lambda bot:bot_list.discard(int(bot.self_id)))
+
+history = []
+
+@event_preprocessor
+async def do_something(event: GroupMessageEvent):
+    if len(bot_list) > 1:
+        if event.user_id in bot_list:
+            raise IgnoredException("event来自其他bot")
+        global history
+        history = history[:20]
+        message_id = event.message_id
+        if message_id in history:
+            raise IgnoredException("event已被其他bot处理")
+        else:
+            history.insert(0, message_id)
