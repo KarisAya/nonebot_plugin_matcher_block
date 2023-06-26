@@ -179,16 +179,14 @@ async def _(matcher: Matcher, event:GroupMessageEvent):
 from nonebot import get_driver
 
 driver = get_driver()
-bot_list = set()
-driver.on_bot_connect(lambda bot:bot_list.add(int(bot.self_id)))
-driver.on_bot_disconnect(lambda bot:bot_list.discard(int(bot.self_id)))
+bots = driver.bots
 
 history = []
 
 @event_preprocessor
 async def do_something(event: GroupMessageEvent):
-    if len(bot_list) > 1:
-        if event.user_id in bot_list:
+    if len(bots) > 1:
+        if event.user_id in bots:
             raise IgnoredException("event来自其他bot")
         global history
         history = history[:20]
