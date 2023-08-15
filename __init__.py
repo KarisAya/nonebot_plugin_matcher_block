@@ -127,7 +127,7 @@ async def do_something(bot:Bot, event:GroupMessageEvent , permission = SUPERUSER
 add_block = on_command("添加阻断",aliases = {"设置阻断"}, permission = SUPERUSER | GROUP_ADMIN | GROUP_OWNER, priority = 5, block = True)
 
 @add_block.handle()
-async def _(event:GroupMessageEvent, arg: Message = CommandArg()):
+async def _(bot:Bot,event:GroupMessageEvent, arg: Message = CommandArg()):
     msg = arg.extract_plain_text().strip().split()
     if not msg:
         return
@@ -135,7 +135,7 @@ async def _(event:GroupMessageEvent, arg: Message = CommandArg()):
     if command in {"添加阻断","设置阻断","解除阻断","删除阻断"}:
         await add_block.finish("不可以这么做")
     args = set(msg[1:])
-    if global_type := {"全局"} & args:
+    if await SUPERUSER(bot,event) and (global_type := {"全局"} & args):
         args = args - global_type
         group_id = "global"
     else:
@@ -193,13 +193,13 @@ async def _(event:GroupMessageEvent, arg: Message = CommandArg()):
 del_block = on_command("解除阻断",aliases={"删除阻断"}, permission = SUPERUSER | GROUP_ADMIN | GROUP_OWNER, priority = 5, block = True)
 
 @del_block.handle()
-async def _(event:GroupMessageEvent, arg: Message = CommandArg()):
+async def _(bot:Bot,event:GroupMessageEvent, arg: Message = CommandArg()):
     msg = arg.extract_plain_text().strip().split()
     if not msg:
         return
     command = msg[0]
     args = set(msg[1:])
-    if global_type := {"全局"} & args:
+    if await SUPERUSER(bot,event) and {"全局"} & args:
         group_id = "global"
     else:
         group_id = str(event.group_id)
