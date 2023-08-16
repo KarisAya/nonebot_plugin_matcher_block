@@ -136,11 +136,10 @@ async def _(bot:Bot,event:GroupMessageEvent, arg: Message = CommandArg()):
         await add_block.finish("不可以这么做")
     args = set(msg[1:])
     if await SUPERUSER(bot,event) and (global_type := {"全局"} & args):
-        args = args - global_type
         group_id = "global"
     else:
         group_id = str(event.group_id)
-
+    args = args - global_type
     echo = "添加阻断指令格式错误。"
     if {"群","屏蔽"} & args:
         global group_config,group_config_file
@@ -148,7 +147,7 @@ async def _(bot:Bot,event:GroupMessageEvent, arg: Message = CommandArg()):
         if command not in tmp:
             tmp.append(command)
         if group_id == "global":
-            group_config = {k:list(set(v)|set(group_config["global"])) for k,v in group_config.items()}
+            group_config = {k:list(set(v.append(command))) for k,v in group_config.items()}
         with open(group_config_file, "w", encoding="utf8") as f:
             json.dump(group_config, f, ensure_ascii=False, indent=4)
         echo = f"指令【{command}】已在{'全局' if group_id == 'global' else group_id}屏蔽。"
@@ -158,7 +157,7 @@ async def _(bot:Bot,event:GroupMessageEvent, arg: Message = CommandArg()):
             data.setdefault(group_id,{})[command] = cd
             if group_id == "global":
                 for v in data.values():
-                    v.update(data["global"])
+                    v[command] = cd
             with open(file, "w", encoding="utf8") as f:
                 json.dump(data, f, ensure_ascii = False, indent = 4)
 
