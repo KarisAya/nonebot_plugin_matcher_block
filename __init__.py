@@ -35,22 +35,26 @@ def load(file:Path) -> dict:
 group_config_file = path / "group_config.json"
 group_config = load(group_config_file)
 
+global_group_config = group_config.get("global",[])
+
 # 冷却
 time_config_file = path / "time_config.json"
 time_config = load(time_config_file)
+
+global_time_config = time_config.get("global",{})
 
 # 共享
 share_config_file = path / "share_config.json"
 share_config = load(share_config_file)
 
+global_share_config = share_config.get("global",{})
 
 def is_block_group(event:GroupMessageEvent) -> bool:
     """
     规则：屏蔽
     """
     msg = event.message.extract_plain_text().strip()
-    global_group_config = group_config.get("global",[]) 
-    commands = group_config.setdefault(str(event.group_id),global_group_config)
+    commands = group_config.setdefault(str(event.group_id),global_group_config.copy())
     for command in commands:
         if command.startswith("^") and re.match(re.compile(command),msg):
             return True
@@ -67,8 +71,7 @@ def is_block_time(event:GroupMessageEvent) -> bool:
     """
     msg = event.message.extract_plain_text().strip()
     group_id = str(event.group_id)
-    global_time_config = time_config.get("global",{})
-    commands = time_config.setdefault(group_id,global_time_config)
+    commands = time_config.setdefault(group_id,global_time_config.copy())
     for command in commands:
         if command.startswith("^") and re.match(re.compile(command),msg):
             break
@@ -92,8 +95,7 @@ def is_block_share(event:GroupMessageEvent) -> bool:
     """
     msg = event.message.extract_plain_text().strip()
     group_id = str(event.group_id)
-    global_share_config = share_config.get("global",{})
-    commands = share_config.setdefault(group_id,global_share_config)
+    commands = share_config.setdefault(group_id,global_share_config.copy())
     for command in commands:
         if command.startswith("^") and re.match(re.compile(command),msg):
             break
@@ -143,9 +145,9 @@ async def _(bot:Bot,event:GroupMessageEvent, arg: Message = CommandArg()):
     echo = "添加阻断指令格式错误。"
     if {"群","屏蔽"} & args:
         global group_config,group_config_file
-        tmp = group_config.setdefault(group_id,[])
-        if command not in tmp:
-            tmp.append(command)
+        commands = group_config.setdefault(group_id,global_group_config.copy())
+        if command not in commands:
+            commands.append(command)
         if group_id == "global":
             group_config = {k:list(set(v.append(command))) for k,v in group_config.items()}
         with open(group_config_file, "w", encoding="utf8") as f:
@@ -154,7 +156,8 @@ async def _(bot:Bot,event:GroupMessageEvent, arg: Message = CommandArg()):
         logger.info(echo)
     else:
         def set_config(data,file):
-            data.setdefault(group_id,{})[command] = cd
+            commands = data.setdefault(group_id,data.get("global",{}).copy())
+            commands[command] = cd
             if group_id == "global":
                 for v in data.values():
                     v[command] = cd
