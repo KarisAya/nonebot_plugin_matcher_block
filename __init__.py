@@ -137,11 +137,11 @@ async def _(bot:Bot,event:GroupMessageEvent, arg: Message = CommandArg()):
     if command in {"添加阻断","设置阻断","解除阻断","删除阻断"}:
         await add_block.finish("不可以这么做")
     args = set(msg[1:])
-    if await SUPERUSER(bot,event) and (global_type := {"全局"} & args):
+    if await SUPERUSER(bot,event) and {"全局"} & args:
         group_id = "global"
     else:
         group_id = str(event.group_id)
-    args = args - global_type
+    args.discard("全局")
     echo = "添加阻断指令格式错误。"
     if {"群","屏蔽"} & args:
         global group_config,group_config_file
@@ -152,7 +152,7 @@ async def _(bot:Bot,event:GroupMessageEvent, arg: Message = CommandArg()):
             group_config = {k:list(set(v.append(command))) for k,v in group_config.items()}
         with open(group_config_file, "w", encoding="utf8") as f:
             json.dump(group_config, f, ensure_ascii=False, indent=4)
-        echo = f"指令【{command}】已在{'全局' if group_id == 'global' else group_id}屏蔽。"
+        echo = f"指令【{command}】已在{'全局' if group_id == 'global' else f'群{group_id}'}屏蔽。"
         logger.info(echo)
     else:
         def set_config(data,file):
