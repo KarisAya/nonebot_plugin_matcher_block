@@ -1,6 +1,7 @@
-import random
+
 from nonebot.plugin.on import on_command
 from nonebot.matcher import Matcher
+from nonebot.params import CommandArg
 from nonebot.adapters.onebot.v11 import (
     GROUP_ADMIN,
     GROUP_OWNER,
@@ -8,24 +9,46 @@ from nonebot.adapters.onebot.v11 import (
     GroupMessageEvent,
     Message,
     )
-from nonebot.params import CommandArg
 from nonebot.permission import SUPERUSER
 from nonebot.log import logger
-
+from nonebot import get_plugin_config
+from typing import Set
+from pydantic import BaseModel
 from pathlib import Path
-import os
 import re
-
+import random
 try:
     import ujson as json
 except ModuleNotFoundError:
     import json
+    
 
+class ConfigModel(BaseModel):
+    nickname: Set[str]
+    '''配置昵称'''
+    command_start: Set[str] # = set()
+    '''配置指令前缀'''
+    block_prod: bool = False
+    '''测试用 生产环境可改为 True'''
+    block_match_start: bool = True
+    '''默认阻断范围包括设置的指令前缀'''
+
+config = get_plugin_config(ConfigModel)
+
+nickname = next(iter(config.nickname)) if config.nickname else "本茶茶"
+start = r'^\s*(' + '|'.join(re.escape(prefix) for prefix in sorted(config.command_start, key=len, reverse=True) if prefix) + r')\s*'
+
+async def formatted_msg(msg: str) -> str:
+    msg = msg.strip()
+    if config.block_match_start:
+        msg = re.sub(start, '', msg, count=1)
+    return msg.strip()
 
 # 加载阻断配置
 path = Path() / "data" / "block"
 if not path.exists():
-    os.makedirs(path)
+    Path(path).mkdir(parents=True, exist_ok=True)
+    # os.makedirs(path)
 
 def load(file:Path) -> dict:
     if file.exists():
@@ -56,7 +79,7 @@ async def is_block_group(event:GroupMessageEvent) -> bool:
     """
     规则：群内屏蔽指令
     """
-    msg = event.message.extract_plain_text().lstrip(' ')
+    msg = await formatted_msg(event.message.extract_plain_text())
     commands = group_config.setdefault(str(event.group_id),global_group_config.copy())
     for command in commands:
         if command.startswith("^") and re.match(re.compile(command),msg):
@@ -74,7 +97,7 @@ async def is_block_time(event:GroupMessageEvent) -> bool:
     规则：不同用户冷却
     """
     global cache
-    msg = event.message.extract_plain_text().lstrip(' ')
+    msg = await formatted_msg(event.message.extract_plain_text())
     group_id = str(event.group_id)
     commands = time_config.setdefault(group_id,global_time_config.copy())
     for command in commands:
@@ -111,7 +134,7 @@ async def is_block_share(event:GroupMessageEvent) -> bool:
     规则：群内共享冷却
     """
     global cache
-    msg = event.message.extract_plain_text().lstrip(' ')
+    msg = await formatted_msg(event.message.extract_plain_text())
     group_id = str(event.group_id)
     commands = share_config.setdefault(group_id,global_share_config.copy())
     for command in commands:
@@ -154,13 +177,13 @@ async def personalized_reply(count: int, msg: str, cd: int, share=False):
     个性化CD回复与刷屏罚时功能
     如果是群内共享冷却则单独为刷屏用户添加罚时(全局)
     """
+    global nickname
     base_msg = f"{'本群' if share else '你的'}{msg}冷却还有{cd}秒~"
-    nickname = "本茶"
     responses = {
         8: (0,  f"好烦，{nickname}不理你了！"),
-        7: (60, f"呜——你冷却 {cd} + 60 秒~"),
-        6: (30, f"啊拉，难道你还想要吗？{msg}冷却 {cd} + 30 秒~"),
-        5: (30, f"你好吵...{nickname}帮你冷静一下。{msg}冷却 {cd} + 30 秒~"),
+        7: (60, f"呜——你冷却罚时 {cd} + 60 秒~"),
+        6: (30, f"啊拉，难道你还想要吗？{msg}冷却罚时 {cd} + 30 秒~"),
+        5: (30, f"你好吵...{nickname}帮你冷静一下。{msg}冷却罚时 {cd} + 30 秒~"),
         4: (0,  f"再问{nickname}要闹了！{msg}还有{cd}秒~"),
         3: (0,  f"诶？怎么肥四（盯...{msg}还有{cd}秒~"),
         2: (0,  f"嘛，还要{nickname}帮你数...{msg}还有{cd}秒~"),
@@ -175,7 +198,7 @@ async def personalized_reply(count: int, msg: str, cd: int, share=False):
 
 @event_preprocessor
 async def do_something(bot:Bot, event:GroupMessageEvent , permission = SUPERUSER | GROUP_ADMIN | GROUP_OWNER):
-    if await permission(bot,event):
+    if await permission(bot,event) and config.block_prod:
         logger.info("已为规则制定者忽略冷却判定")
         return
     if await is_block_group(event):
