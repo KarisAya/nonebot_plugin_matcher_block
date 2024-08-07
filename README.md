@@ -65,8 +65,8 @@ __注意:即使你在所有的群都阻断了某一指令，这个指令的阻�
 
 ### 可选配置和功能：
 
-    block_prod: bool = False    # 设为 True 时管理员以上权限将不受指令阻断规则限制
-    block_match_start: bool = True    # 自动剔除你设置的Bot指令前缀（COMMAND_START）
+    block_prod: bool = False		# 设为 True 时管理员以上权限将不受指令阻断规则限制
+    block_match_start: bool = True	# 自动剔除你设置的Bot指令前缀（COMMAND_START）
 
 以上配置需要填写在nonebot的配置中
     
@@ -80,7 +80,7 @@ __注意:即使你在所有的群都阻断了某一指令，这个指令的阻�
 
 例如你希望仅使用 `添加阻断 本群cp 屏蔽` 即可同时屏蔽 `\本群cp` `#本群cp` ...，请在你的.env中添加：
 
-    block_match_start: bool = True
+    block_match_start = True
 
 [~~插件广告：娶群友~~](https://github.com/KarisAya/nonebot_plugin_groupmate_waifu)
 
