@@ -68,7 +68,7 @@ __注意:即使你在所有的群都阻断了某一指令，这个指令的阻�
     block_prod: bool = False    # 设为 True 时管理员以上权限将不受指令阻断规则限制
     block_match_start: bool = True    # 自动剔除你设置的Bot指令前缀（COMMAND_START）
 
-以上配置需要填写在nonebot
+以上配置需要填写在nonebot的配置中
     
 ### 不同指令前缀视为不同指令：
 
