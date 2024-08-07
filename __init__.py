@@ -1,3 +1,4 @@
+import random
 from nonebot.plugin.on import on_command
 from nonebot.matcher import Matcher
 from nonebot.adapters.onebot.v11 import (
@@ -31,27 +32,27 @@ def load(file:Path) -> dict:
             return json.load(f)
     return {}
 
-# 屏蔽
+# 单群屏蔽
 group_config_file = path / "group_config.json"
 group_config = load(group_config_file)
 
 global_group_config = group_config.get("global",[])
 
-# 冷却
+# 用户冷却
 time_config_file = path / "time_config.json"
 time_config = load(time_config_file)
 
 global_time_config = time_config.get("global",{})
 
-# 共享
+# 群内共享冷却
 share_config_file = path / "share_config.json"
 share_config = load(share_config_file)
 
 global_share_config = share_config.get("global",{})
 
-def is_block_group(event:GroupMessageEvent) -> bool:
+async def is_block_group(event:GroupMessageEvent) -> bool:
     """
-    规则：屏蔽
+    规则：群内屏蔽指令
     """
     msg = event.message.extract_plain_text().strip()
     commands = group_config.setdefault(str(event.group_id),global_group_config.copy())
@@ -63,11 +64,11 @@ def is_block_group(event:GroupMessageEvent) -> bool:
     else:
         return False
 
-cache = {}
+cache = {} # CD
 
-def is_block_time(event:GroupMessageEvent) -> bool:
+async def is_block_time(event:GroupMessageEvent) -> bool:
     """
-    规则：冷却
+    规则：不同用户冷却
     """
     msg = event.message.extract_plain_text().strip()
     group_id = str(event.group_id)
@@ -83,15 +84,26 @@ def is_block_time(event:GroupMessageEvent) -> bool:
     user_id = event.user_id
     usercache = cache.setdefault(group_id, {}).setdefault(user_id, {})
     cd = event.time - usercache.get(command, 0)
+    user_count = f'{command}_count'
+    
     if cd > commands[command]:
         usercache[command] = event.time
+        usercache.pop(user_count, None)
         return False
     else:
-        return f"你的【{msg}】冷却还有{int(commands[command] - cd) + 1}秒"
+        usercache[user_count] = usercache.get(user_count, 0) + 1
+        msg = (msg[:5] + '...') if len(msg) > 5 else msg
+        penalty_cd, new_msg = await personalized_reply(
+            usercache[user_count], msg, int(commands[command] - cd) + 1, False)
+        if penalty_cd != 0:
+            usercache[command] += penalty_cd
+        return new_msg
+    
+        # return f"你的【{msg}】冷却还有{int(commands[command] - cd) + 1}秒"
 
-def is_block_share(event:GroupMessageEvent) -> bool:
+async def is_block_share(event:GroupMessageEvent) -> bool:
     """
-    规则：共享冷却
+    规则：群内共享冷却
     """
     msg = event.message.extract_plain_text().strip()
     group_id = str(event.group_id)
@@ -103,13 +115,51 @@ def is_block_share(event:GroupMessageEvent) -> bool:
             break
     else:
         return False
+    
     sharecache = cache.setdefault(group_id, {}).setdefault("share", {})
     cd = event.time - sharecache.get(command, 0)
+    user_id = event.user_id
+    user_cd = f'{command}_cd'
+    user_count = f'{command}_count'
+    cd -= sharecache.get(user_id, {}).get(user_cd, 0)
+    
     if cd > commands[command]:
         sharecache[command] = event.time
+        sharecache.pop(user_id, None)
         return False
     else:
-        return f"本群【{msg}】冷却还有{int(commands[command] - cd) + 1}秒"
+        user_data = sharecache.setdefault(user_id, {user_cd: 0, user_count: 0})
+        user_data[user_count] += 1
+        msg = (msg[:5] + '...') if len(msg) > 5 else msg
+        penalty_cd, new_msg = await personalized_reply(
+            sharecache[user_id][user_count], msg, int(commands[command] - cd) + 1, True)
+        if penalty_cd != 0:
+            user_data[user_cd] += penalty_cd
+        return new_msg
+    
+        # return f"本群【{msg}】冷却还有{int(commands[command] - cd) + 1}秒"
+
+async def personalized_reply(count: int, msg: str, cd: int, share=False):
+    """ 
+    个性化CD回复与刷屏罚时功能
+    如果是群内共享冷却则单独为刷屏用户添加罚时(全局)
+    """
+    base_msg = f"{'本群' if share else '你的'}{msg}冷却还有{cd}秒~"
+    responses = {
+        8: (0, "好烦，本茶不理你了！"),
+        7: (60, f"呜——{msg}冷却 {cd + 60}秒~"),
+        6: (30, f"啊拉，难道你还想要吗？{msg}冷却 {cd + 30}秒~"),
+        5: (30, f"你好吵...茶茶帮你冷静一下。{msg}冷却 {cd + 30}秒~"),
+        4: (0, f"再问本茶要闹了！{msg}还有{cd}秒~"),
+        3: (0, f"诶？怎么肥四（盯...{msg}还有{cd}秒~"),
+        2: (0, f"嘛，还要本茶帮你数...{msg}还有{cd}秒~"),
+        1: (0, base_msg)
+    }
+    if count in responses:
+        return responses[count]
+    if random.randint(1, 9) == 5:
+        return (0, "哼！")
+    raise IgnoredException("指令冷却时刷屏超限，不予回应")
 
 from nonebot.message import event_preprocessor
 from nonebot.exception import IgnoredException
@@ -117,14 +167,14 @@ from nonebot.exception import IgnoredException
 @event_preprocessor
 async def do_something(bot:Bot, event:GroupMessageEvent , permission = SUPERUSER | GROUP_ADMIN | GROUP_OWNER):
     if not await permission(bot,event):
-        if is_block_group(event):
-            raise IgnoredException("本群已屏蔽此指令")
-        elif echo := is_block_share(event):
+        if await is_block_group(event):
+            raise IgnoredException("本群已经屏蔽该指令啦")
+        elif echo := await is_block_share(event):
             await bot.send(event = event, message = echo)
-            raise IgnoredException("本群指令正在冷却")
-        elif echo := is_block_time(event):
+            raise IgnoredException("本群的指令正在冷却喔")
+        elif echo := await is_block_time(event):
             await bot.send(event = event, message = echo)
-            raise IgnoredException("用户指令正在冷却")
+            raise IgnoredException("该用户指令还在冷却嗷")
 
 add_block = on_command("添加阻断",aliases = {"设置阻断"}, permission = SUPERUSER | GROUP_ADMIN | GROUP_OWNER, priority = 5, block = True)
 
