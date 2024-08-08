@@ -1,4 +1,3 @@
-
 from nonebot.plugin.on import on_command
 from nonebot.matcher import Matcher
 from nonebot.params import CommandArg
@@ -181,9 +180,9 @@ async def personalized_reply(count: int, msg: str, cd: int, share=False):
     base_msg = f"{'本群' if share else '你的'}{msg}冷却还有{cd}秒~"
     responses = {
         8: (0,  f"好烦，{nickname}不理你了！"),
-        7: (60, f"呜——你冷却罚时 {cd} + 60 秒~"),
-        6: (30, f"啊拉，难道你还想要吗？{msg}冷却罚时 {cd} + 30 秒~"),
-        5: (30, f"你好吵...{nickname}帮你冷静一下。{msg}冷却罚时 {cd} + 30 秒~"),
+        7: (60, f"呜——你冷却 {cd + 60} 秒（罚时+60）~"),
+        6: (30, f"啊拉，难道你还想要吗？{msg}冷却罚时 {cd + 30} 秒（罚时+30）~"),
+        5: (30, f"你好吵...{nickname}帮你冷静一下。{msg}冷却罚时 {cd + 30} 秒（罚时+30）~"),
         4: (0,  f"再问{nickname}要闹了！{msg}还有{cd}秒~"),
         3: (0,  f"诶？怎么肥四（盯...{msg}还有{cd}秒~"),
         2: (0,  f"嘛，还要{nickname}帮你数...{msg}还有{cd}秒~"),
