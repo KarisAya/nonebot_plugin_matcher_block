@@ -1,10 +1,8 @@
 from collections import Counter
 import random
 import time
-import json
 
-
-from nonebot.plugin.on import on_command
+from nonebot import get_driver, get_plugin_config, on_command
 from nonebot.params import CommandArg
 from nonebot.adapters.onebot.v11 import (
     GROUP_ADMIN,
@@ -15,10 +13,9 @@ from nonebot.adapters.onebot.v11 import (
 )
 from nonebot.permission import SUPERUSER
 from nonebot.log import logger
-from nonebot import get_driver, get_plugin_config
+
 from nonebot.message import event_preprocessor
 from nonebot.exception import IgnoredException
-
 
 from . import config as cfg
 from .core import Manager as BaseManager
