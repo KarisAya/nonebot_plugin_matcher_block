@@ -12,12 +12,29 @@ from nonebot.adapters.onebot.v11 import (
 )
 from nonebot.permission import SUPERUSER
 from nonebot.log import logger
+from nonebot.plugin import PluginMetadata
 
 from nonebot.message import event_preprocessor
 from nonebot.exception import IgnoredException
 
 from . import config as cfg
 from .core import Manager as BaseManager
+
+reserved_command = ["添加阻断", "设置阻断", "解除阻断", "删除阻断", "查看阻断"]
+
+
+__plugin_meta__ = PluginMetadata(
+    name="通用指令阻断",
+    description="通用指令阻断",
+    usage=",".join(reserved_command),
+    type="application",
+    homepage="https://github.com/KarisAya/nonebot_plugin_matcher_block",
+    supported_adapters={
+        "nonebot.adapters.onebot.v11",
+    },
+    config=cfg.Config,
+)
+
 
 driver = get_driver()
 nickname = driver.config.nickname
@@ -95,8 +112,6 @@ event_preprocessor(manager.act)
 
 
 add_block = on_command("添加阻断", aliases={"设置阻断"}, permission=SUPERUSER | GROUP_ADMIN | GROUP_OWNER, priority=5, block=True)
-
-reserved_command = ["添加阻断", "设置阻断", "解除阻断", "删除阻断"]
 
 
 @add_block.handle()
