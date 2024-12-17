@@ -7,6 +7,9 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.12"
+nonebot2 = "^2.4.0"
+nonebot-adapter-onebot = "^2.4.6"
+pydantic = "^2.10.3"
 
 
 [build-system]
