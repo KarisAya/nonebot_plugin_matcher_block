@@ -229,4 +229,4 @@ async def _(event: GroupMessageEvent):
         msg += "".join(f"【{command}】：{cd}秒冷却（正则）\n" for command, cd in group_config.cooldown_regex.items())
         msg += "".join(f"【{command}】：{cd}秒共享冷却\n" for command, cd in group_config.shared_cooldown.items())
         msg += "".join(f"【{command}】：{cd}秒共享冷却（正则）\n" for command, cd in group_config.shared_cooldown_regex.items())
-    await show_block.finish(msg)
+    await show_block.finish(msg[:-1])
