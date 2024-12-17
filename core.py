@@ -50,9 +50,9 @@ class ConfigData[GroupID](BaseModel):
         path = Path(data_path)
         if path.exists():
             with open(path, "r", encoding="utf8") as f:
-                return cls.model_validate_json(f)
+                return cls.model_validate_json(f.read())
         else:
-            return cls()
+            return cls(configs={}, global_config=BlockConfig())
 
     def save(self, data_path: str):
         with open(data_path, "w", encoding="utf8") as f:
@@ -70,7 +70,7 @@ class Manager[GroupID, UserID]():
     config_path = "data/block.json"
 
     def __init__(self):
-        self.config_data: ConfigData[GroupID] = ConfigData.load(self.config_path)
+        self.config_data = ConfigData[GroupID].load(self.config_path)
         self.cooldown_rec = {}
         self.shared_cooldown_rec = {}
 
@@ -92,10 +92,10 @@ class Manager[GroupID, UserID]():
     def check_block(message: str, block: set[str], block_regex: set[str]):
         info = {"checkpoint": "block"}
         if block:
-            if any(x for x in block if message.startswith(x)):
+            if any(message.startswith(x) for x in block):
                 return info
         if block_regex:
-            if any(x for x in block if re.match(x, message)):
+            if any(re.match(x, message) for x in block):
                 return info
 
     def check_cooldown(self, group_id: GroupID, user_id: UserID, command: str, cooldown: float):
