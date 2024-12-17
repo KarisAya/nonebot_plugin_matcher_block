@@ -96,7 +96,7 @@ class Manager(BaseManager[int, int]):
                 await bot.send(event=event, message=f"你的 {msg} 冷却还有{cd}秒~")
             elif count >= len(self.personalized_replylist):
                 if random.randint(1, 9) == 5:
-                    await bot.send(event=event, message="哼！")
+                    await bot.send(event=event, message=self.personalized_replylist[-1])
             else:
                 t, resp = self.personalized_replylist[count]
                 self.cooldown_rec[group_id][info["cmd"]][user_id] += t
