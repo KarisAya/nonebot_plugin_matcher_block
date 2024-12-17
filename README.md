@@ -51,6 +51,8 @@ nb plugin install nonebot_plugin_groupmate_waifu
 
 使用 `添加阻断 娶群友 冷却 120` 后，本群内成员各自的 `娶群友` 将会有 120 秒冷却
 
+[~~插件广告：娶群友~~](https://github.com/KarisAya/nonebot_plugin_groupmate_waifu)
+
 使用 `添加阻断 点歌 共享冷却 120` 后，本群内成员共享 `点歌` 的冷却时间
 
 _注意:以上三个参数只生效 1 个。可以把某一指令设置多种阻断类型，也就是即屏蔽，又冷却，也共享冷却。~~但是这样做没有什么必要~~_
@@ -117,11 +119,11 @@ _注意:以上三个参数只生效 1 个。可以把某一指令设置多种阻
 
 如你希望仅使用 `添加阻断 本群cp 屏蔽` 即可同时屏蔽 `\本群cp` `#本群cp` ...，请在你的.env 将此项值配置为 true。
 
-[~~插件广告：娶群友~~](https://github.com/KarisAya/nonebot_plugin_groupmate_waifu)
-
-`personalized_replylist` 个性化回复列表及罚时
+`personalized_replylist` 冷却期内的个性化回复列表及多次刷屏罚时
 
 列表中每行都是字符串，但是开头为数字与空格，数字代表触发此回复后给用户此指令增加的罚时。
+
+列表是有序的，多次刷屏用户看到的回复是从上到下依次的。
 
 字符串带有格式化标签，支持 `{bot}` Bot 名称，`{msg}` 被屏蔽的指令，`{cd}` 剩余冷却时间。
 
